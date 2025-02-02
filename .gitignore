@@ -23,6 +23,7 @@ venv
 .DS_Store
 
 .asvz-bot.json
+.env
 
 # ASDF
 .tool-versions

@@ -127,6 +127,13 @@ NO_SUCH_ELEMENT_ERR_MSG = f"Element on website not found! This may happen when t
 LESSON_ENROLLMENT_NUMBER_REGEX = re.compile(r".*Du\shast\sdie\sPlatz\-Nr\.\s(\d+).*")
 
 
+
+def slow_typing(element, text, delay=0.1):
+    """Send keys to an element with a delay between each keystroke."""
+    for char in text:
+        element.send_keys(char)
+        time.sleep(delay)  # Adjust delay if needed
+
 class AsvzBotException(Exception):
     pass
 
@@ -311,14 +318,19 @@ class AsvzEnroller:
     def get_driver(chromedriver_path, proxy_url=None):
         options = Options()
         options.add_argument("--private")
-        options.add_argument("--headless")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--window-size=1920,1080")   
+        options.add_argument("--disable-gpu")
+        options.add_argument("--headless=new")
         options.add_argument(
             "--no-sandbox"
         )  # Required for running as root user in Docker container
         options.add_argument(
             "--disable-dev-shm-usage"
         )  # Required for running as root user in Docker container
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36")
         options.add_experimental_option("prefs", {"intl.accept_languages": "de"})
+        options.add_experimental_option("prefs", {"translate": {"enabled": False}})  # Disable automatic translation
         if proxy_url is not None:
             options.add_argument(f"--proxy-server={proxy_url}")
 
@@ -574,12 +586,24 @@ class AsvzEnroller:
                 )
             ).click()
 
+            logging.info("NOW CHOOSING ORGANISATION")
+
+            submit_button = WebDriverWait(driver, 20).until(
+                EC.presence_of_element_located((By.XPATH, "//input[@type='submit' and @value='Select']"))
+            )
+
             organization = driver.find_element(
                 By.XPATH, "//input[@id='userIdPSelection_iddtext']"
             )
             organization.send_keys("{}a".format(Keys.CONTROL))
-            organization.send_keys(self.creds[CREDENTIALS_ORG])
+            slow_typing(organization, self.creds[CREDENTIALS_ORG])
+            # organization.send_keys(self.creds[CREDENTIALS_ORG])
             organization.send_keys(Keys.ENTER)
+
+            # TODO SCK: Should not be needed as the Enter already triggers this
+            # submit_button = WebDriverWait(driver, 10).until(
+            #     EC.element_to_be_clickable((By.XPATH, "//input[@type='submit' and @value='Select']"))
+            # ).click()
 
             # UZH switched to Switch edu-ID login @see https://github.com/fbuetler/asvz-bot/issues/31
             if (
@@ -588,6 +612,8 @@ class AsvzEnroller:
             ):
                 self.__organisation_login_switch_eduid(driver)
             else:
+                logging.info("Login at current url'{}'".format(driver.current_url))
+
                 self.__organisation_login_default(driver)
 
         logging.info("Submitted login credentials")
@@ -653,12 +679,23 @@ class AsvzEnroller:
         ).click()
 
     def __organisation_login_default(self, driver):
-        driver.find_element(By.XPATH, "//input[@id='username']").send_keys(
-            self.creds[CREDENTIALS_UNAME]
+        submit_button = WebDriverWait(driver, 60).until(
+            EC.presence_of_element_located((By.XPATH, "//button[@type='submit']"))
         )
-        driver.find_element(By.XPATH, "//input[@id='password']").send_keys(
-            self.creds[CREDENTIALS_PW]
-        )
+
+        # driver.find_element(By.XPATH, "//input[@id='username']").send_keys(
+        #     self.creds[CREDENTIALS_UNAME]
+        # )
+        # driver.find_element(By.XPATH, "//input[@id='password']").send_keys(
+        #     self.creds[CREDENTIALS_PW]
+        # )
+
+        username_field = driver.find_element(By.XPATH, "//input[@id='username']")
+        password_field = driver.find_element(By.XPATH, "//input[@id='password']")
+
+        slow_typing(username_field, self.creds[CREDENTIALS_UNAME])
+        slow_typing(password_field, self.creds[CREDENTIALS_PW])
+
         driver.find_element(By.XPATH, "//button[@type='submit']").click()
 
     def __wait_for_free_places(self, driver):
@@ -865,7 +902,8 @@ def main():
         logging.error(e)
         exit(1)
 
-    chromedriver_path = get_chromedriver_path(args.proxy)
+    # chromedriver_path = get_chromedriver_path(args.proxy)
+    chromedriver_path = '/usr/bin/chromedriver'
 
     enroller = None
     if args.type == "lesson":
