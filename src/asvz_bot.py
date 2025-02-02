@@ -411,7 +411,7 @@ class AsvzEnroller:
                         EC.element_to_be_clickable(
                             (
                                 By.XPATH,
-                                "//button[@id='btnRegister' and (@class='btn-primary btn enrollmentPlacePadding' or @class='btn btn-default')]",
+                                "//button[@id='btnRegister' and (@class='btn-primary btn enrollmentPlacePadding' or @class='btn btn-primary')]",
                             )
                         )
                     ).click()
@@ -427,14 +427,11 @@ class AsvzEnroller:
                 enrolled = True
 
                 try:
-                    enrollment_el = driver.find_element(
-                        By.TAG_NAME, "app-lessons-enrollment-button"
-                    )
+                    enrollment_el = driver.find_element(By.XPATH, "//app-enrollment-messages")
 
-                    alert_el = enrollment_el.find_element(
-                        By.XPATH, "//div[contains(@class, 'alert')]"
-                    )
-                    alert_text = alert_el.get_attribute("innerHTML")
+                    alert_el = enrollment_el.alert_el = enrollment_el.find_element(By.XPATH, ".//div[contains(@class, 'alert')]")
+
+                    alert_text = alert_el.get_attribute("innerText").strip()
 
                     if "Du hast dich erfolgreich eingeschrieben" in alert_text:
                         logging.info("Successfully enrolled. Train hard and have fun!")
@@ -443,8 +440,8 @@ class AsvzEnroller:
                             "Enrollment might have not been successful. Please check your E-Mail."
                         )
 
-                    participation_el = enrollment_el.find_element(By.TAG_NAME, "span")
-                    participation_text = participation_el.get_attribute("innerHTML")
+                    participation_el = driver.find_element(By.XPATH, "//app-lesson-withdraw-button//span")
+                    participation_text = participation_el.get_attribute("innerText").strip()
 
                     m = LESSON_ENROLLMENT_NUMBER_REGEX.match(participation_text)
                     if m:
@@ -865,7 +862,9 @@ def main():
         logging.error(e)
         exit(1)
 
-    chromedriver_path = get_chromedriver_path(args.proxy)
+    # chromedriver_path = get_chromedriver_path(args.proxy)
+    chromedriver_path = "/usr/local/bin/chromedriver"
+
 
     enroller = None
     if args.type == "lesson":
