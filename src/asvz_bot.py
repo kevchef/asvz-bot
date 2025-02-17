@@ -311,14 +311,19 @@ class AsvzEnroller:
     def get_driver(chromedriver_path, proxy_url=None):
         options = Options()
         options.add_argument("--private")
-        options.add_argument("--headless")
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("--window-size=1920,1080")   
+        options.add_argument("--disable-gpu")
+        options.add_argument("--headless=new")
         options.add_argument(
             "--no-sandbox"
         )  # Required for running as root user in Docker container
         options.add_argument(
             "--disable-dev-shm-usage"
         )  # Required for running as root user in Docker container
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36")
         options.add_experimental_option("prefs", {"intl.accept_languages": "de"})
+        options.add_experimental_option("prefs", {"translate": {"enabled": False}})  # Disable automatic translation
         if proxy_url is not None:
             options.add_argument(f"--proxy-server={proxy_url}")
 
@@ -411,7 +416,7 @@ class AsvzEnroller:
                         EC.element_to_be_clickable(
                             (
                                 By.XPATH,
-                                "//button[@id='btnRegister' and (@class='btn-primary btn enrollmentPlacePadding' or @class='btn btn-primary')]",
+                                "//button[@id='btnRegister' and (@class='btn-primary btn enrollmentPlacePadding' or @class='btn btn-default')]",
                             )
                         )
                     ).click()
@@ -427,11 +432,14 @@ class AsvzEnroller:
                 enrolled = True
 
                 try:
-                    enrollment_el = driver.find_element(By.XPATH, "//app-enrollment-messages")
+                    enrollment_el = driver.find_element(
+                        By.TAG_NAME, "app-lessons-enrollment-button"
+                    )
 
-                    alert_el = enrollment_el.alert_el = enrollment_el.find_element(By.XPATH, ".//div[contains(@class, 'alert')]")
-
-                    alert_text = alert_el.get_attribute("innerText").strip()
+                    alert_el = enrollment_el.find_element(
+                        By.XPATH, "//div[contains(@class, 'alert')]"
+                    )
+                    alert_text = alert_el.get_attribute("innerHTML")
 
                     if "Du hast dich erfolgreich eingeschrieben" in alert_text:
                         logging.info("Successfully enrolled. Train hard and have fun!")
@@ -440,8 +448,8 @@ class AsvzEnroller:
                             "Enrollment might have not been successful. Please check your E-Mail."
                         )
 
-                    participation_el = driver.find_element(By.XPATH, "//app-lesson-withdraw-button//span")
-                    participation_text = participation_el.get_attribute("innerText").strip()
+                    participation_el = enrollment_el.find_element(By.TAG_NAME, "span")
+                    participation_text = participation_el.get_attribute("innerHTML")
 
                     m = LESSON_ENROLLMENT_NUMBER_REGEX.match(participation_text)
                     if m:
@@ -570,6 +578,7 @@ class AsvzEnroller:
                     )
                 )
             ).click()
+
 
             organization = driver.find_element(
                 By.XPATH, "//input[@id='userIdPSelection_iddtext']"
@@ -863,8 +872,7 @@ def main():
         exit(1)
 
     # chromedriver_path = get_chromedriver_path(args.proxy)
-    chromedriver_path = "/usr/local/bin/chromedriver"
-
+    chromedriver_path = '/usr/bin/chromedriver'
 
     enroller = None
     if args.type == "lesson":
